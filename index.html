@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>용해와 용액 방탈출</title>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --primary: #1a1a2e;
+    --secondary: #16213e;
+    --accent: #0f3460;
+    --gold: #e94560;
+    --neon: #00d4ff;
+    --neon2: #7fff00;
+    --text: #e8e8e8;
+    --muted: #a0a0b0;
+  }
+
+  body {
+    font-family: 'Nanum Gothic', sans-serif;
+    background: var(--primary);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .stars {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+    background: radial-gradient(ellipse at top, #0d1b4b 0%, #1a1a2e 60%, #0a0a1a 100%);
+  }
+
+  .star {
+    position: absolute; background: white; border-radius: 50%;
+    animation: twinkle 3s infinite;
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.3); }
+  }
+
+  .game-container {
+    position: relative; z-index: 1;
+    max-width: 800px; margin: 0 auto; padding: 20px;
+  }
+
+  /* SCREENS */
+  .screen { display: none; animation: fadeIn 0.5s ease; }
+  .screen.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* INTRO SCREEN */
+  .intro-title {
+    font-family: 'Jua', sans-serif;
+    font-size: 2.8rem;
+    text-align: center;
+    margin: 30px 0 10px;
+    color: var(--neon);
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+    line-height: 1.2;
+  }
+
+  .intro-subtitle {
+    font-family: 'Jua', sans-serif;
+    font-size: 1.4rem;
+    text-align: center;
+    color: var(--gold);
+    margin-bottom: 30px;
+  }
+
+  .door-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 30px 0;
+  }
+
+  .door-card {
+    background: linear-gradient(135deg, #16213e, #0f3460);
+    border: 2px solid rgba(0, 212, 255, 0.3);
+    border-radius: 16px;
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .door-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(0,212,255,0.1), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .door-card:hover::before { opacity: 1; }
+  .door-card:hover {
+    border-color: var(--neon);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 212, 255, 0.3);
+  }
+
+  .door-card.cleared {
+    border-color: var(--neon2);
+    background: linear-gradient(135deg, #0d2b0d, #1a3d1a);
+  }
+
+  .door-card.locked {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.7);
+  }
+
+  .door-icon { font-size: 2.5rem; margin-bottom: 10px; }
+  .door-num {
+    font-family: 'Jua', sans-serif;
+    font-size: 0.8rem;
+    color: var(--neon);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .door-name {
+    font-family: 'Jua', sans-serif;
+    font-size: 1rem;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .door-status {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    display: inline-block;
+  }
+
+  .status-locked { background: rgba(233,69,96,0.2); color: var(--gold); border: 1px solid rgba(233,69,96,0.4); }
+  .status-open { background: rgba(0,212,255,0.15); color: var(--neon); border: 1px solid rgba(0,212,255,0.4); }
+  .status-clear { background: rgba(127,255,0,0.15); color: var(--neon2); border: 1px solid rgba(127,255,0,0.4); }
+
+  .progress-bar-wrap {
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px; height: 10px; margin: 20px 0;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%; border-radius: 20px;
+    background: linear-gradient(90deg, var(--neon), var(--neon2));
+    transition: width 0.5s ease;
+    box-shadow: 0 0 10px rgba(0,212,255,0.5);
+  }
+
+  .progress-text {
+    text-align: center; font-size: 0.85rem; color: var(--muted); margin-bottom: 20px;
+  }
+
+  /* QUIZ SCREEN */
+  .room-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(0,212,255,0.2);
+  }
+
+  .back-btn {
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    color: var(--neon); border-radius: 8px;
+    padding: 6px 14px; cursor: pointer;
+    font-family: 'Nanum Gothic', sans-serif;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+
+  .back-btn:hover { background: rgba(0,212,255,0.25); }
+
+  .room-title {
+    font-family: 'Jua', sans-serif;
+    font-size: 1.3rem;
+    color: var(--neon);
+    flex: 1;
+  }
+
+  .question-counter {
+    font-size: 0.8rem; color: var(--muted);
+    background: rgba(255,255,255,0.05);
+    padding: 4px 12px; border-radius: 20px;
+  }
+
+  .question-card {
+    background: linear-gradient(135deg, rgba(15,52,96,0.8), rgba(22,33,62,0.9));
+    border: 1px solid rgba(0,212,255,0.25);
+    border-radius: 16px;
+    padding: 28px 24px;
+    margin-bottom: 20px;
+  }
+
+  .question-badge {
+    display: inline-block;
+    background: rgba(0,212,255,0.15);
+    color: var(--neon);
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(0,212,255,0.3);
+    margin-bottom: 14px;
+    letter-spacing: 1px;
+  }
+
+  .question-text {
+    font-size: 1.15rem;
+    line-height: 1.7;
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .option-btn {
+    background: rgba(22,33,62,0.8);
+    border: 2px solid rgba(0,212,255,0.2);
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: 'Nanum Gothic', sans-serif;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-align: left;
+    line-height: 1.4;
+  }
+
+  .option-btn:hover:not(:disabled) {
+    border-color: var(--neon);
+    background: rgba(0,212,255,0.1);
+    transform: translateX(4px);
+  }
+
+  .option-btn.correct {
+    border-color: var(--neon2);
+    background: rgba(127,255,0,0.1);
+    color: var(--neon2);
+  }
+
+  .option-btn.wrong {
+    border-color: var(--gold);
+    background: rgba(233,69,96,0.1);
+    color: var(--gold);
+  }
+
+  .option-btn:disabled { cursor: default; }
+
+  .feedback-box {
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    display: none;
+  }
+
+  .feedback-box.show { display: block; animation: slideUp 0.3s ease; }
+  .feedback-box.correct-fb { background: rgba(127,255,0,0.08); border: 1px solid rgba(127,255,0,0.3); color: var(--neon2); }
+  .feedback-box.wrong-fb { background: rgba(233,69,96,0.08); border: 1px solid rgba(233,69,96,0.3); color: #ff8099; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .next-btn, .start-btn, .retry-btn {
+    display: block; width: 100%;
+    background: linear-gradient(135deg, #0f3460, #16213e);
+    border: 2px solid var(--neon);
+    color: var(--neon);
+    font-family: 'Jua', sans-serif;
+    font-size: 1.1rem;
+    padding: 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 0 15px rgba(0,212,255,0.2);
+  }
+
+  .next-btn:hover, .start-btn:hover, .retry-btn:hover {
+    background: rgba(0,212,255,0.15);
+    box-shadow: 0 0 25px rgba(0,212,255,0.4);
+    transform: translateY(-2px);
+  }
+
+  .start-btn {
+    margin-top: 24px;
+    font-size: 1.3rem;
+    padding: 18px;
+    border-color: var(--gold);
+    color: var(--gold);
+    box-shadow: 0 0 20px rgba(233,69,96,0.3);
+  }
+
+  .start-btn:hover {
+    background: rgba(233,69,96,0.15);
+    box-shadow: 0 0 30px rgba(233,69,96,0.5);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  /* ROOM CLEAR */
+  .room-clear {
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .clear-icon { font-size: 5rem; margin-bottom: 16px; animation: bounce 0.8s ease; }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+  }
+
+  .clear-title {
+    font-family: 'Jua', sans-serif;
+    font-size: 2rem;
+    color: var(--neon2);
+    margin-bottom: 8px;
+    text-shadow: 0 0 20px rgba(127,255,0,0.5);
+  }
+
+  .clear-score {
+    font-size: 1.1rem;
+    color: var(--muted);
+    margin-bottom: 30px;
+  }
+
+  .score-stars { font-size: 2rem; margin-bottom: 8px; }
+
+  .code-reveal {
+    background: rgba(0,212,255,0.08);
+    border: 2px solid rgba(0,212,255,0.4);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 20px 0;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { border-color: rgba(0,212,255,0.4); }
+    50% { border-color: rgba(0,212,255,0.9); box-shadow: 0 0 20px rgba(0,212,255,0.3); }
+  }
+
+  .code-label { font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; letter-spacing: 2px; }
+  .code-value {
+    font-family: 'Jua', sans-serif;
+    font-size: 2.5rem;
+    color: var(--neon);
+    letter-spacing: 12px;
+    text-shadow: 0 0 15px rgba(0,212,255,0.6);
+  }
+
+  /* FINAL SCREEN */
+  .final-screen {
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .final-title {
+    font-family: 'Jua', sans-serif;
+    font-size: 3rem;
+    color: var(--gold);
+    margin-bottom: 10px;
+    text-shadow: 0 0 30px rgba(233,69,96,0.6);
+    animation: glow 1.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes glow {
+    from { text-shadow: 0 0 20px rgba(233,69,96,0.5); }
+    to { text-shadow: 0 0 40px rgba(233,69,96,0.9), 0 0 60px rgba(233,69,96,0.4); }
+  }
+
+  .final-subtitle {
+    font-family: 'Jua', sans-serif;
+    font-size: 1.4rem;
+    color: var(--neon);
+    margin-bottom: 30px;
+  }
+
+  .total-score-card {
+    background: linear-gradient(135deg, rgba(15,52,96,0.9), rgba(22,33,62,0.9));
+    border: 2px solid var(--neon);
+    border-radius: 20px;
+    padding: 30px;
+    margin: 24px 0;
+    box-shadow: 0 0 30px rgba(0,212,255,0.2);
+  }
+
+  .total-score-num {
+    font-family: 'Jua', sans-serif;
+    font-size: 4rem;
+    color: var(--neon2);
+    text-shadow: 0 0 20px rgba(127,255,0,0.5);
+  }
+
+  .total-score-label {
+    color: var(--muted);
+    font-size: 1rem;
+    margin-top: 4px;
+  }
+
+  .firework {
+    position: fixed;
+    pointer-events: none;
+    z-index: 100;
+    font-size: 2rem;
+    animation: firework-anim 1.2s forwards;
+  }
+
+  @keyframes firework-anim {
+    0% { opacity: 1; transform: scale(0.5) translateY(0); }
+    100% { opacity: 0; transform: scale(1.5) translateY(-120px); }
+  }
+
+  .hint-box {
+    background: rgba(255,200,0,0.07);
+    border: 1px solid rgba(255,200,0,0.25);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    color: #ffd700;
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 500px) {
+    .door-grid { grid-template-columns: repeat(2, 1fr); }
+    .options-grid { grid-template-columns: 1fr; }
+    .intro-title { font-size: 2rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<div class="game-container">
+
+  <!-- INTRO SCREEN -->
+  <div class="screen active" id="screen-intro">
+    <div class="intro-title">🔬 용해와 용액<br>방탈출 🔐</div>
+    <div class="intro-subtitle">5학년 과학 탐험대</div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="total-progress" style="width:0%"></div>
+    </div>
+    <div class="progress-text" id="progress-text">0 / 6 방 클리어</div>
+
+    <div class="door-grid" id="door-grid"></div>
+
+    <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 16px 20px; font-size: 0.9rem; color: var(--muted); line-height: 1.7;">
+      💡 각 방의 퀴즈를 풀면 <span style="color:var(--neon)">비밀 코드</span>를 얻을 수 있어요!<br>
+      6개 코드를 모두 모아 탈출하세요! 🚀
+    </div>
+  </div>
+
+  <!-- QUIZ SCREEN -->
+  <div class="screen" id="screen-quiz">
+    <div class="room-header">
+      <button class="back-btn" onclick="goHome()">← 홈</button>
+      <div class="room-title" id="quiz-room-title"></div>
+      <div class="question-counter" id="q-counter">1 / 3</div>
+    </div>
+
+    <div class="question-card">
+      <div class="question-badge" id="q-badge">문제 1</div>
+      <div class="question-text" id="q-text"></div>
+    </div>
+
+    <div class="hint-box" id="hint-box" style="display:none"></div>
+
+    <div class="options-grid" id="options-grid"></div>
+
+    <div class="feedback-box" id="feedback-box"></div>
+
+    <button class="next-btn" id="next-btn" style="display:none" onclick="nextQuestion()">다음 문제 →</button>
+  </div>
+
+  <!-- ROOM CLEAR SCREEN -->
+  <div class="screen" id="screen-clear">
+    <div class="room-clear">
+      <div class="clear-icon">🎉</div>
+      <div class="clear-title" id="clear-title">방 탈출 성공!</div>
+      <div class="score-stars" id="score-stars"></div>
+      <div class="clear-score" id="clear-score"></div>
+      <div class="code-reveal">
+        <div class="code-label">🔑 획득한 비밀 코드</div>
+        <div class="code-value" id="code-value"></div>
+      </div>
+      <button class="next-btn" onclick="goHome()">🗺️ 지도로 돌아가기</button>
+    </div>
+  </div>
+
+  <!-- FINAL SCREEN -->
+  <div class="screen" id="screen-final">
+    <div class="final-screen">
+      <div style="font-size:5rem; margin-bottom:16px;">🏆</div>
+      <div class="final-title">탈출 성공!</div>
+      <div class="final-subtitle">용해와 용액 마스터!</div>
+
+      <div class="total-score-card">
+        <div style="font-size:0.9rem; color:var(--muted); margin-bottom:4px;">총 획득 점수</div>
+        <div class="total-score-num" id="final-score">0</div>
+        <div class="total-score-label">점</div>
+        <div style="margin-top:16px; font-size:0.9rem; color:var(--muted);">수집한 코드</div>
+        <div id="all-codes" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center;"></div>
+      </div>
+
+      <div style="font-family:'Jua',sans-serif; font-size:1rem; color:var(--muted); margin-bottom:20px; line-height:1.8;">
+        🌟 용해와 용액의 세계를 완전히 정복했어요!<br>
+        선생님께 코드를 보여드리세요!
+      </div>
+
+      <button class="retry-btn" onclick="resetGame()">🔄 처음부터 다시하기</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const ROOMS = [
+  {
+    id: 0,
+    icon: "🧪",
+    name: "용해의 비밀 창고",
+    code: "DIS",
+    questions: [
+      {
+        text: "설탕이 물에 녹아 보이지 않게 되는 현상을 무엇이라고 할까요?",
+        hint: "힌트: 용질이 용매에 녹아드는 과정이에요!",
+        options: ["증발", "용해", "응결", "연소"],
+        answer: 1,
+        explanation: "✅ 정답! '용해'는 용질이 용매에 골고루 섞여 녹는 현상이에요. 설탕이 물에 녹는 것이 바로 용해랍니다!"
+      },
+      {
+        text: "용해가 일어날 때 용질과 용매 중 어느 것의 양이 더 적을까요?",
+        hint: "힌트: 커피에 설탕을 넣을 때 어느 것이 더 많이 들어갈까요?",
+        options: ["용질", "용매", "둘 다 같다", "경우마다 다르다"],
+        answer: 0,
+        explanation: "✅ 정답! 용질은 녹는 물질로, 보통 용매보다 양이 훨씬 적어요. 물에 소금을 녹일 때 소금(용질)이 물(용매)보다 적지요!"
+      },
+      {
+        text: "다음 중 용해가 일어난 것이 아닌 것은 무엇일까요?",
+        hint: "힌트: 물에 넣었을 때 녹지 않고 그대로 있는 것을 찾아보세요!",
+        options: ["물에 소금을 넣었다", "물에 각설탕을 넣었다", "물에 모래를 넣었다", "물에 식초를 넣었다"],
+        answer: 2,
+        explanation: "✅ 정답! 모래는 물에 녹지 않아요. 용해는 용질이 용매에 골고루 녹는 현상인데, 모래는 물에 녹지 않고 가라앉습니다!"
+      }
+    ]
+  },
+  {
+    id: 1,
+    icon: "💧",
+    name: "용액 분류 실험실",
+    code: "SOL",
+    questions: [
+      {
+        text: "설탕물에서 설탕은 무엇이고, 물은 무엇일까요?",
+        hint: "힌트: 녹이는 것과 녹는 것을 구분해보세요!",
+        options: ["설탕=용매, 물=용질", "설탕=용질, 물=용매", "설탕=용액, 물=용매", "설탕=용질, 물=용액"],
+        answer: 1,
+        explanation: "✅ 정답! 설탕은 녹는 물질이므로 '용질', 물은 녹이는 물질이므로 '용매'예요. 설탕물 전체가 바로 '용액'이랍니다!"
+      },
+      {
+        text: "용액의 특징으로 옳은 것은 무엇일까요?",
+        hint: "힌트: 잘 만들어진 용액은 어느 부분이나 같은 성질을 가져요!",
+        options: ["위아래의 농도가 다르다", "시간이 지나면 분리된다", "어느 부분이나 성질이 같다", "투명하지 않다"],
+        answer: 2,
+        explanation: "✅ 정답! 용액은 '균일 혼합물'로, 어느 부분을 떠도 농도와 성질이 모두 같아요. 이것이 용액의 가장 중요한 특징이에요!"
+      },
+      {
+        text: "다음 중 용액에 해당하지 않는 것은?",
+        hint: "힌트: 섞어도 섞이지 않고 뿌옇게 되는 것이 있어요!",
+        options: ["소금물", "식초", "흙탕물", "설탕물"],
+        answer: 2,
+        explanation: "✅ 정답! 흙탕물은 흙이 물에 녹지 않고 섞여 있는 '혼합물'이에요. 시간이 지나면 흙이 가라앉으므로 용액이 아니랍니다!"
+      }
+    ]
+  },
+  {
+    id: 2,
+    icon: "🌡️",
+    name: "온도 마법 연구소",
+    code: "TMP",
+    questions: [
+      {
+        text: "온도가 높아지면 고체 물질이 물에 녹는 양(용해도)은 어떻게 될까요?",
+        hint: "힌트: 뜨거운 물에 설탕을 넣으면 더 많이 녹을까요, 적게 녹을까요?",
+        options: ["줄어든다", "변하지 않는다", "늘어난다", "없어진다"],
+        answer: 2,
+        explanation: "✅ 정답! 대부분의 고체 물질은 온도가 높아질수록 용해도가 커져요. 뜨거운 물에 설탕이나 소금이 더 잘 녹는 것이 바로 이 때문이에요!"
+      },
+      {
+        text: "탄산음료(콜라)에서 기포(이산화탄소)가 많이 나오는 경우는 언제일까요?",
+        hint: "힌트: 기체의 용해도는 고체와 반대로 작동해요!",
+        options: ["냉장고에 넣었을 때", "뚜껑을 꽉 닫았을 때", "따뜻한 곳에 두었을 때", "세게 흔들지 않았을 때"],
+        answer: 2,
+        explanation: "✅ 정답! 기체의 용해도는 온도가 높아지면 오히려 줄어들어요. 그래서 따뜻한 콜라는 이산화탄소가 더 잘 빠져나와 기포가 많이 생기는 거예요!"
+      },
+      {
+        text: "100°C의 물 100g에 소금 40g을 녹였다가 물을 식혔습니다. 어떻게 될까요?",
+        hint: "힌트: 차가운 물은 뜨거운 물보다 소금을 적게 녹일 수 있어요!",
+        options: ["소금이 모두 그대로 녹아있다", "소금이 일부 다시 결정으로 나온다", "소금이 모두 사라진다", "물이 소금으로 변한다"],
+        answer: 1,
+        explanation: "✅ 정답! 물이 식으면 용해도가 줄어들어, 녹아있던 소금이 더 이상 녹아있지 못하고 다시 결정(소금 알갱이)으로 나와요. 이를 '석출'이라고 해요!"
+      }
+    ]
+  },
+  {
+    id: 3,
+    icon: "⚖️",
+    name: "농도 측정 방",
+    code: "CON",
+    questions: [
+      {
+        text: "용액의 진하기(농도)를 비교할 때 가장 좋은 방법은?",
+        hint: "힌트: 달걀이나 방울토마토를 용액에 띄워보면 알 수 있어요!",
+        options: ["색깔로 비교한다", "맛으로만 비교한다", "물체를 띄워 뜨고 가라앉는 정도로 비교한다", "크기로 비교한다"],
+        answer: 2,
+        explanation: "✅ 정답! 달걀이나 방울토마토를 용액에 넣어 뜨고 가라앉는 정도를 관찰하면 농도를 비교할 수 있어요. 진한 용액일수록 물체가 더 잘 떠요!"
+      },
+      {
+        text: "소금물의 농도를 더 진하게 만들려면 어떻게 해야 할까요?",
+        hint: "힌트: 농도 = 용질의 양 ÷ 용액의 양. 어떻게 하면 비율이 커질까요?",
+        options: ["물을 더 넣는다", "소금을 더 넣는다", "용액을 차갑게 한다", "천천히 저어준다"],
+        answer: 1,
+        explanation: "✅ 정답! 용액의 농도를 진하게 하려면 용질(소금)을 더 넣거나, 물(용매)을 증발시켜 줄이면 돼요. 소금을 더 넣으면 농도가 높아집니다!"
+      },
+      {
+        text: "소금물 100g 중에 소금이 5g 들어있다면 이 용액의 농도(%)는?",
+        hint: "힌트: 농도(%) = (용질의 질량 ÷ 용액의 질량) × 100",
+        options: ["1%", "5%", "10%", "20%"],
+        answer: 1,
+        explanation: "✅ 정답! 농도(%) = (5g ÷ 100g) × 100 = 5%예요. 용질의 질량을 용액 전체의 질량으로 나누고 100을 곱하면 백분율 농도가 나와요!"
+      }
+    ]
+  },
+  {
+    id: 4,
+    icon: "🔍",
+    name: "혼합물 분리 탐정 사무소",
+    code: "SEP",
+    questions: [
+      {
+        text: "소금물에서 소금을 다시 얻으려면 어떻게 해야 할까요?",
+        hint: "힌트: 바닷물에서 소금을 얻는 방법을 생각해보세요!",
+        options: ["거름종이로 거른다", "물을 증발시킨다", "자석을 사용한다", "원심분리기를 사용한다"],
+        answer: 1,
+        explanation: "✅ 정답! 소금물을 가열하면 물이 증발하고 소금만 남아요. 바닷가 염전에서도 이 방법으로 소금을 얻는답니다!"
+      },
+      {
+        text: "흙탕물에서 깨끗한 물을 얻으려면 어떤 방법이 가장 적합할까요?",
+        hint: "힌트: 흙은 물에 녹지 않으니까 작은 구멍으로 걸러낼 수 있어요!",
+        options: ["증발시킨다", "냉각시킨다", "거름종이로 거른다", "소금을 넣는다"],
+        answer: 2,
+        explanation: "✅ 정답! 흙은 물에 녹지 않으므로 거름종이(필터)를 사용해서 걸러낼 수 있어요. 이 방법을 '여과'라고 한답니다!"
+      },
+      {
+        text: "물과 식용유를 섞었을 때 나타나는 현상으로 옳은 것은?",
+        hint: "힌트: 식용유는 물보다 가볍고, 물에 녹지 않아요!",
+        options: ["완전히 섞여서 용액이 된다", "식용유가 아래에 가라앉는다", "식용유가 위에 뜨고 두 층으로 나뉜다", "두 물질이 반응하여 새로운 물질이 생긴다"],
+        answer: 2,
+        explanation: "✅ 정답! 식용유는 물에 녹지 않고, 물보다 밀도가 작아서 위에 떠요. 그래서 물과 식용유는 두 층으로 분리된답니다!"
+      }
+    ]
+  },
+  {
+    id: 5,
+    icon: "🚀",
+    name: "최종 탈출 보스방",
+    code: "OUT",
+    questions: [
+      {
+        text: "용액, 용질, 용매의 관계를 올바르게 설명한 것은?",
+        hint: "힌트: 용액 = 용질 + 용매로 이루어져요!",
+        options: ["용액 = 용질 × 용매", "용액 = 용질 + 용매", "용질 = 용액 + 용매", "용매 = 용질 + 용액"],
+        answer: 1,
+        explanation: "✅ 정답! 용액은 용질(녹는 물질)과 용매(녹이는 물질)가 합쳐진 혼합물이에요. 소금(용질) + 물(용매) = 소금물(용액)!"
+      },
+      {
+        text: "다음 중 용해도에 대한 설명으로 옳은 것은?",
+        hint: "힌트: 용해도는 일정한 온도의 용매 100g에 녹을 수 있는 용질의 최대량이에요!",
+        options: ["모든 물질의 용해도는 같다", "용해도는 온도에 관계없이 항상 일정하다", "물질마다 용해도가 다르다", "용해도는 용매의 양에 따라 달라진다"],
+        answer: 2,
+        explanation: "✅ 정답! 용해도는 물질마다 달라요. 같은 온도에서 설탕은 물에 많이 녹지만, 소금은 그보다 적게 녹고, 탄산칼슘은 거의 녹지 않아요!"
+      },
+      {
+        text: "아래 실험에서 비커 A는 소금물 100g, 비커 B는 물 100g입니다. 방울토마토를 넣었더니 A에서는 떠오르고 B에서는 가라앉았습니다. 이것이 의미하는 것은?",
+        hint: "힌트: 용액의 농도가 높을수록 물체가 더 잘 떠요!",
+        options: ["A가 B보다 온도가 높다", "A가 B보다 농도가 높다", "B가 A보다 농도가 높다", "두 용액의 농도는 같다"],
+        answer: 1,
+        explanation: "✅ 정답! 농도가 높은 용액일수록 밀도가 커서 물체가 더 잘 떠요. 방울토마토가 A에서 뜨고 B에서 가라앉는 것은 A(소금물)의 농도가 더 높다는 증거예요!"
+      }
+    ]
+  }
+];
+
+let gameState = {
+  cleared: [],
+  scores: {},
+  currentRoom: null,
+  currentQ: 0,
+  correctInRoom: 0,
+  answered: false
+};
+
+function createStars() {
+  const container = document.getElementById('stars');
+  for (let i = 0; i < 80; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    const size = Math.random() * 2.5 + 0.5;
+    star.style.cssText = `
+      width:${size}px; height:${size}px;
+      top:${Math.random()*100}%; left:${Math.random()*100}%;
+      animation-delay:${Math.random()*3}s;
+      animation-duration:${Math.random()*2+2}s;
+    `;
+    container.appendChild(star);
+  }
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function renderHome() {
+  const cleared = gameState.cleared;
+  const grid = document.getElementById('door-grid');
+  grid.innerHTML = '';
+
+  ROOMS.forEach((room, i) => {
+    const isCleared = cleared.includes(i);
+    const isLocked = i > 0 && !cleared.includes(i-1);
+    const div = document.createElement('div');
+    div.className = 'door-card' + (isCleared ? ' cleared' : isLocked ? ' locked' : '');
+
+    let statusHtml = isCleared
+      ? '<span class="door-status status-clear">✓ 클리어</span>'
+      : isLocked
+        ? '<span class="door-status status-locked">🔒 잠김</span>'
+        : '<span class="door-status status-open">▶ 도전 가능</span>';
+
+    div.innerHTML = `
+      <div class="door-icon">${isCleared ? '✅' : room.icon}</div>
+      <div class="door-num">방 ${i+1}</div>
+      <div class="door-name">${room.name}</div>
+      ${statusHtml}
+      ${isCleared ? `<div style="margin-top:8px; font-family:'Jua',sans-serif; font-size:1.1rem; color:var(--neon); letter-spacing:4px;">${room.code}</div>` : ''}
+    `;
+
+    if (!isLocked) {
+      div.onclick = () => startRoom(i);
+    }
+    grid.appendChild(div);
+  });
+
+  const pct = Math.round(cleared.length / ROOMS.length * 100);
+  document.getElementById('total-progress').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = `${cleared.length} / ${ROOMS.length} 방 클리어`;
+
+  showScreen('screen-intro');
+}
+
+function startRoom(roomIdx) {
+  if (gameState.cleared.includes(roomIdx-1) || roomIdx === 0) {
+    gameState.currentRoom = roomIdx;
+    gameState.currentQ = 0;
+    gameState.correctInRoom = 0;
+    gameState.answered = false;
+    renderQuestion();
+    showScreen('screen-quiz');
+  }
+}
+
+function renderQuestion() {
+  const room = ROOMS[gameState.currentRoom];
+  const q = room.questions[gameState.currentQ];
+  const total = room.questions.length;
+
+  document.getElementById('quiz-room-title').textContent = room.icon + ' ' + room.name;
+  document.getElementById('q-counter').textContent = `${gameState.currentQ+1} / ${total}`;
+  document.getElementById('q-badge').textContent = `🔐 문제 ${gameState.currentQ+1}`;
+  document.getElementById('q-text').textContent = q.text;
+
+  const hintBox = document.getElementById('hint-box');
+  hintBox.textContent = q.hint;
+  hintBox.style.display = 'block';
+
+  const grid = document.getElementById('options-grid');
+  grid.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.textContent = ['①', '②', '③', '④'][i] + ' ' + opt;
+    btn.onclick = () => selectAnswer(i);
+    grid.appendChild(btn);
+  });
+
+  const fb = document.getElementById('feedback-box');
+  fb.className = 'feedback-box';
+  fb.style.display = 'none';
+  document.getElementById('next-btn').style.display = 'none';
+  gameState.answered = false;
+}
+
+function selectAnswer(idx) {
+  if (gameState.answered) return;
+  gameState.answered = true;
+
+  const room = ROOMS[gameState.currentRoom];
+  const q = room.questions[gameState.currentQ];
+  const btns = document.querySelectorAll('.option-btn');
+  btns.forEach(b => b.disabled = true);
+
+  const isCorrect = idx === q.answer;
+  btns[idx].classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) btns[q.answer].classList.add('correct');
+
+  if (isCorrect) gameState.correctInRoom++;
+
+  const fb = document.getElementById('feedback-box');
+  fb.className = 'feedback-box show ' + (isCorrect ? 'correct-fb' : 'wrong-fb');
+  fb.textContent = q.explanation;
+
+  const nextBtn = document.getElementById('next-btn');
+  const isLast = gameState.currentQ === room.questions.length - 1;
+  nextBtn.textContent = isLast ? '🎯 결과 확인하기' : '다음 문제 →';
+  nextBtn.style.display = 'block';
+}
+
+function nextQuestion() {
+  const room = ROOMS[gameState.currentRoom];
+  if (gameState.currentQ < room.questions.length - 1) {
+    gameState.currentQ++;
+    renderQuestion();
+  } else {
+    showRoomClear();
+  }
+}
+
+function showRoomClear() {
+  const room = ROOMS[gameState.currentRoom];
+  const correct = gameState.correctInRoom;
+  const total = room.questions.length;
+  const score = correct * 30 + (correct === total ? 10 : 0);
+
+  if (!gameState.cleared.includes(gameState.currentRoom)) {
+    gameState.cleared.push(gameState.currentRoom);
+  }
+  gameState.scores[gameState.currentRoom] = score;
+
+  const stars = correct === total ? '⭐⭐⭐' : correct >= 2 ? '⭐⭐' : '⭐';
+  document.getElementById('score-stars').textContent = stars;
+  document.getElementById('clear-title').textContent =
+    correct === total ? '🎊 완벽 클리어!' : correct >= 2 ? '👍 방 탈출 성공!' : '💪 통과했어요!';
+  document.getElementById('clear-score').textContent =
+    `${total}문제 중 ${correct}문제 정답! +${score}점`;
+  document.getElementById('code-value').textContent = room.code;
+
+  showScreen('screen-clear');
+
+  if (gameState.cleared.length === ROOMS.length) {
+    setTimeout(showFinal, 2000);
+  }
+}
+
+function showFinal() {
+  const totalScore = Object.values(gameState.scores).reduce((a, b) => a + b, 0);
+  document.getElementById('final-score').textContent = totalScore;
+
+  const codesDiv = document.getElementById('all-codes');
+  codesDiv.innerHTML = '';
+  ROOMS.forEach(r => {
+    const span = document.createElement('span');
+    span.style.cssText = `
+      background: rgba(0,212,255,0.12); border: 1px solid rgba(0,212,255,0.4);
+      border-radius: 8px; padding: 6px 14px;
+      font-family:'Jua',sans-serif; font-size:1.2rem;
+      color: var(--neon); letter-spacing: 4px;
+    `;
+    span.textContent = r.code;
+    codesDiv.appendChild(span);
+  });
+
+  showScreen('screen-final');
+  launchFireworks();
+}
+
+function launchFireworks() {
+  const emojis = ['🎉', '🎊', '⭐', '🌟', '🚀', '💫', '✨'];
+  for (let i = 0; i < 15; i++) {
+    setTimeout(() => {
+      const fw = document.createElement('div');
+      fw.className = 'firework';
+      fw.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      fw.style.left = Math.random() * 90 + 5 + '%';
+      fw.style.top = Math.random() * 60 + 20 + '%';
+      fw.style.animationDelay = Math.random() * 0.5 + 's';
+      document.body.appendChild(fw);
+      setTimeout(() => fw.remove(), 1400);
+    }, i * 120);
+  }
+}
+
+function goHome() {
+  renderHome();
+}
+
+function resetGame() {
+  gameState = { cleared: [], scores: {}, currentRoom: null, currentQ: 0, correctInRoom: 0, answered: false };
+  renderHome();
+}
+
+createStars();
+renderHome();
+</script>
+</body>
+</html>
